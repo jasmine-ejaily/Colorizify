@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: screens/HomeScreen.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: screens/HomeScreen.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+The Home screen of the app, where the user can colorize their image.
+ * @module screen/HomeScreen
+ * @requires React
+ * @requires react-native
+ * @requires react-native-community/netinfo
+ * @requires firebase
+ * @requires ui-kitten/components
+ * @author Yasmin Magdi Fahmi
+ */
+import React, { memo, useState, useEffect } from 'react';
+import { TouchableOpacity, Image, View } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
+import * as firebase from 'firebase';
+import {
+  Text,
+  Layout,
+  Button,
+  Avatar,
+  Modal,
+  Card,
+  Spinner,
+  useStyleSheet,
+  StyleService,
+  useTheme
+} from '@ui-kitten/components';
+import { ImageIcon, CameraIcon } from '../assets/icons/icons';
+import ModeSwitch from '../components/ModeSwitch';
+import { getCRollPermission, getCPermission } from '../core/helpers/permissions';
+import colorize from '../api/colorize-api';
+import { uploadImageAsync, addImageToDB } from '../api/firebase-db-st';
+import { ScrollView } from 'react-native-gesture-handler';
+import { pickImage, takePhoto, downloadFile } from '../core/helpers/IO';
+
+
+/**
+   Renders the home screen
+ * @function
+ * @param {Object} navigation - a navigation object contains functions and properties for navigation
+   @return {jsx} - The screen
+   */
+
+const HomeScreen = ({ navigation }) => {
+  //the statuses and their setters, statuses re-render the app when changed
+  const [username, setUsername] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [hasCRollPermission, setCRollPermission] = useState(false);
+  const [hasCameraPermission, setCameraPermission] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [connected, setConnection] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [coloredImage, setColoredImage] = useState({ image: null, id: '' });
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  //destructuring email, full name and uid of the current user from firebase
+  const { email, displayName, uid } = firebase.auth().currentUser;
+
+  //using the theme in home screen
+  const styles = useStyleSheet(themedStyles);
+  const colors = useTheme();
+
+  //runs when the screen first mounts
+  useEffect(() => {
+    setFullName(displayName);
+    //get (fake) username from user's email (anything before the @ symbol)
+    setUsername(email.match(/[^@]+/));
+    //listens for the status of the network
+     const unsubscribe = NetInfo.addEventListener(state => {
+       setConnection(state.isConnected);
+     });
+  }, []);
+
+/**
+  requests permission to device's storage from user
+ * @function _cRollAccess
+ * @async
+ * @private
+   */
+
+  const _cRollAccess = async () => {
+    await getCRollPermission()
+      .then(res => setCRollPermission(res))
+      .catch(e => setError(e));
+  };
+ 
+/**
+ requests permission to device's camera from user
+* @function _cameraAccess
+* @async
+  @private
+  */
+  const _cameraAccess = async () => {
+    await getCPermission()
+      .then(res => setCameraPermission(res))
+      .catch(e => setError(e));
+  };
+/**
+ * Opens device's UI for picking images (if permission was granted).
+ * @function _OpenGallery
+ * @private
+ * @async
+   */
+
+  const _OpenGallery = async () => {
+    await _cRollAccess();
+    if (!hasCRollPermission) {
+      await _cRollAccess();
+      return;
+    }
+    let result = await pickImage();
+    if (!result.cancelled) {
+      _handleImage(result);
+    }
+  };
+
+/**
+ * Opens device's camera (if permission was granted).
+ * @function _OpenCamera
+ * @private
+ * @async
+   */
+
+  const _OpenCamera = async () => {
+    await _cameraAccess();
+    if (!hasCameraPermission) {
+      await _cameraAccess();
+      return;
+    }
+    let result = await takePhoto();
+    if (!result.cancelled) {
+      _handleImage(result);
+    }
+  };
+
+/**
+ * Downloads image to device storage.
+ * @function _SaveImage
+ * @async
+ * @private
+ * @param {String} image - colorized image's url
+ * @param {String} id - id of the colorized image
+   */
+
+  const _SaveImage = async (image, id) => {
+    if (loading) return;
+    setSaving(true);
+    await downloadFile(image, id)
+      .then(() => {
+        setSaving(false);
+        setMessage('Image saved successfully');
+      })
+      .catch(e => setError(e));
+  };
+
+/**
+ * handles uploading the picked image to the server and colorization
+ * @function _handleImage
+ * @async
+ * @private
+ * @param { Object } pickerResult - image picked by the user
+*/
+      
+  const _handleImage = async pickerResult => {
+    try {
+      if (loading) return;
+      setLoading(true);
+      // checks if user is online.
+      if(connected){
+        //upload image to the firebase storage (temporarily hosting the image)
+      await uploadImageAsync(pickerResult.uri, uid)
+        .then(async ImageURL => {
+          //send the image to DeOldify model for colorization
+          await colorize(ImageURL)
+            .then(async res => {
+              //host the colorized image on firebase storage, since the api doesn't keep colorized images for long
+              await uploadImageAsync(res.output_url, uid)
+                .then(coloredURL => {
+                  //store the colorized image for display
+                  setColoredImage({ image: coloredURL, id: res.id });
+                  //finally add the image to the database
+                  addImageToDB(coloredURL, uid, res.id);
+                })
+                .catch(e => setError(e));
+            })
+            .catch(e => setError(e));
+        })
+        .catch(e => setError(e));
+      }else{setMessage("You need to be connected to the internet to colorize.")}
+    } catch (e) {
+      setError(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+// what the user will see on their screen (rendering)
+  return (
+    &lt;Layout style={{ flex: 1 }}>
+      &lt;Layout style={styles.top}>
+        &lt;TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+          &lt;Layout style={styles.user}>
+            &lt;Avatar
+              style={{ marginRight: 10 }}
+              size="large"
+              source={require('../assets/images/avatar.png')}
+            />
+            &lt;Layout style={styles.userText}>
+              &lt;Text style={{ fontWeight: 'bold', fontSize: 16 }}>{fullName}&lt;/Text>
+              &lt;Text style={{ fontSize: 14 }} appearance="hint">
+                {`@${username}`}
+              &lt;/Text>
+              {!connected &amp;&amp; &lt;Text status='warning'>You're offline!&lt;/Text>}
+            &lt;/Layout>
+          &lt;/Layout>
+        &lt;/TouchableOpacity>
+        {/* UI mode switch */}
+        &lt;ModeSwitch
+          moonColor={colors['color-primary-500']}
+          sunColor={colors['color-primary-300']}
+        />
+      &lt;/Layout>
+      {/* if loading is true OR colorized image exists */}
+      {loading || coloredImage.image ? (
+        &lt;Layout style={styles.container}>
+          {/* if image is being colorized */}
+          {loading ? (
+            &lt;View style={styles.container}>
+              &lt;Image
+                source={require('../assets/images/colorizing-AI.png')}
+                style={{ width: 150, height: 150, marginBottom: 30 }}
+              />
+              &lt;Text category="h5" style={{ fontWeight: 'bold', marginBottom: 10 }}>
+                The AI is colorizing your photo
+              &lt;/Text>
+              &lt;Text style={{ marginBottom: 30 }}>This may take a few moments...&lt;/Text>
+              &lt;Spinner size="giant" status="primary" />
+              &lt;Text style={styles.credit}>
+                ©With DeOldify{'\n'} &lt;Text style={styles.creditName}>by Jason Antic&lt;/Text>
+              &lt;/Text>
+            &lt;/View>
+          ) : (
+            // when the image is finally colorized
+            &lt;ScrollView style={{ flex: 1, height: '100%' }} showsVerticalScrollIndicator={false}>
+              &lt;Layout style={styles.container}>
+                &lt;View style={styles.coloredTextView}>
+                  &lt;Text category="h5" style={styles.title}>
+                    Here's your colorized photo...
+                  &lt;/Text>
+                  &lt;Text>Hope you Like it! ♥&lt;/Text>
+                &lt;/View>
+                &lt;Layout style={styles.coloredHolder}>
+                  &lt;Image source={{ uri: coloredImage.image }} style={styles.coloredPhoto} />
+                &lt;/Layout>
+                &lt;View style={{ flexDirection: 'row' }}>
+                  &lt;Button
+                    onPress={() => _SaveImage(coloredImage.image, coloredImage.id)}
+                    style={styles.saveButton}>
+                    {saving ? &lt;Spinner size="small" status="control" /> : 'Save to device'}
+                  &lt;/Button>
+                  &lt;Button
+                    onPress={() => setColoredImage('')}
+                    style={{ marginVertical: 20, marginLeft: 15 }}
+                    appearance="outline">
+                    Colorize another
+                  &lt;/Button>
+                &lt;/View>
+              &lt;/Layout>
+            &lt;/ScrollView>
+          )}
+        &lt;/Layout>
+      ) : (
+        //when there is no colorized image (yet) and no loading (when opening the app basically)
+        &lt;Layout style={styles.main}>
+          &lt;Text category="h5" style={styles.title}>
+            &lt;Text category="h5" style={styles.italicTitle}>
+              Colorizify{' '}
+            &lt;/Text>
+            Some Old Photos!
+          &lt;/Text>
+          &lt;Text style={styles.hintText} appearance="hint">
+            Click on the image icon to select from storage or the camera icon take a photo
+          &lt;/Text>
+          &lt;Image source={require('../assets/images/32.png')} style={styles.footerImage} />
+          &lt;View style={styles.imageUploadBorder}>
+            &lt;Layout style={{ flexDirection: 'row' }}>
+              &lt;Button
+                onPress={_OpenGallery}
+                appearance="ghost"
+                accessoryLeft={() => ImageIcon(colors['color-primary-500'])}
+                style={{ marginRight: 10 }}
+              />
+              &lt;Layout style={styles.divider}>&lt;/Layout>
+              &lt;Button
+                onPress={_OpenCamera}
+                appearance="ghost"
+                accessoryLeft={() => CameraIcon(colors['color-primary-500'])}
+                style={{ marginLeft: 10 }}
+              />
+            &lt;/Layout>
+            &lt;Text style={styles.tip} appearance="hint">
+              Tip: photos of higher quality and clarity have better results, but also a take longer
+              time to colorize.
+            &lt;/Text>
+          &lt;/View>
+        &lt;/Layout>
+      )}
+      {/* the message pop up window */}
+      &lt;Modal visible={!!message} backdropStyle={styles.backdrop}>
+        &lt;Card disabled={true} status="info">
+          &lt;Text style={{ marginVertical: 30 }}>{message}&lt;/Text>
+          &lt;Button status="info" onPress={() => setMessage('')}>
+            OK
+          &lt;/Button>
+        &lt;/Card>
+      &lt;/Modal>
+      {/* the error pop up window */}
+      &lt;Modal visible={!!error}>
+        &lt;Card disabled={true} status="warning">
+          &lt;Text style={{ marginVertical: 30 }}>{error}&lt;/Text>
+          &lt;Button status="warning" onPress={() => setError('')}>
+            OK
+          &lt;/Button>
+        &lt;/Card>
+      &lt;/Modal>
+    &lt;/Layout>
+  );
+};
+
+//styles
+const themedStyles = StyleService.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  main: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  top: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 10
+  },
+  user: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10
+  },
+  userText: {
+    flexDirection: 'column'
+  },
+  imageUploadBorder: {
+    width: 300,
+    height: 300,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: 'color-basic-500',
+    borderRadius: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  divider: {
+    width: 1,
+    borderLeftWidth: 1,
+    borderStyle: 'dotted',
+    borderColor: 'color-basic-500',
+    borderRadius: 1
+  },
+  hintText: {
+    fontSize: 12,
+    paddingHorizontal: 40,
+    marginVertical: 25
+  },
+  title: {
+    alignSelf: 'center',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginTop: 20
+  },
+  italicTitle: {
+    fontStyle: 'italic',
+    fontWeight: 'bold',
+    color: 'color-primary-500'
+  },
+  tip: {
+    marginTop: 10,
+    textAlign: 'center',
+    fontSize: 10,
+    paddingHorizontal: 40
+  },
+  footerImage: {
+    width: 600,
+    height: 500,
+    position: 'absolute',
+    bottom: -290,
+    right: -100,
+    opacity: 0.3
+  },
+  coloredHolder: {
+    width: 280,
+    height: 280,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderColor: 'color-primary-500',
+    borderWidth: 2,
+    borderRadius: 10,
+    marginVertical: 20
+  },
+  backdrop: {
+    backgroundColor: 'rgba(0, 0, 0, 0.2)'
+  },
+  coloredPhoto: {
+    width: 280,
+    height: 280,
+    aspectRatio: 1.0,
+    borderColor: 'color-primary-500',
+    borderWidth: 2,
+    borderRadius: 10
+  },
+  coloredTextView: {
+    marginVertical: 20
+  },
+  saveButton: {
+    marginVertical: 20,
+    width: 140,
+    height: 45
+  },
+  credit: {
+    color: 'color-primary-500',
+    fontSize: 12,
+    marginTop: 40
+  },
+  creditName: {
+    fontSize: 10,
+    color: 'color-primary-400'
+  }
+});
+
+export default memo(HomeScreen);
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-api_auth-api.html">api/auth-api</a></li><li><a href="module-api_colorize-api.html">api/colorize-api</a></li><li><a href="module-api_firebase-database-storage.html">api/firebase-database-storage</a></li><li><a href="module-components_BackButton.html">components/BackButton</a></li><li><a href="module-components_ModeSwitch.html">components/ModeSwitch</a></li><li><a href="module-components_TextInput.html">components/TextInput</a></li><li><a href="module-helpers_IO.html">helpers/IO</a></li><li><a href="module-helpers_permissions.html">helpers/permissions</a></li><li><a href="module-helpers_validators.html">helpers/validators</a></li><li><a href="module-Navigator.html">Navigator</a></li><li><a href="module-screen_AuthLoadingScreen.html">screen/AuthLoadingScreen</a></li><li><a href="module-screen_ForgotPasswordScreen.html">screen/ForgotPasswordScreen</a></li><li><a href="module-screen_HomeScreen.html">screen/HomeScreen</a></li><li><a href="module-screen_ImageDetailScreen.html">screen/ImageDetailScreen</a></li><li><a href="module-screen_LoginScreen.html">screen/LoginScreen</a></li><li><a href="module-screen_RegisterScreen.html">screen/RegisterScreen</a></li><li><a href="module-screen_UserProfileScreen.html">screen/UserProfileScreen</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.4</a> on Mon May 25 2020 15:57:17 GMT+0200 (Eastern European Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

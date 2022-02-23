@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: index.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: index.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+The main navigator of the app, allow navigation between screens
+ * @module Navigator
+ * @requires React
+ * @requires react-native
+ * @requires eva-design/eva
+ * @requires react-navigation/stack
+ * @requires react-navigation/bottom-tabs
+ * @requires react-navigation/native
+ * @requires ui-kitten/components
+ * @author Yasmin Magdi Fahmi
+ */
+
+import React, { memo } from 'react';
+import { StatusBar } from 'react-native';
+import * as eva from '@eva-design/eva';
+import { createStackNavigator } from '@react-navigation/stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { EvaIconsPack } from '@ui-kitten/eva-icons';
+import { NavigationContainer } from '@react-navigation/native';
+import { ApplicationProvider, IconRegistry, BottomNavigation, BottomNavigationTab } from '@ui-kitten/components';
+import { ThemeContext } from './core/config/theme-context';
+import { default as customTheme } from './assets/theme/theme.json';
+//app's screens
+import {
+  HomeScreen,
+  UserProfileScreen,
+  LoginScreen,
+  ForgotPasswordScreen,
+  ImageDetailsScreen,
+  RegisterScreen,
+  AuthLoadingScreen
+} from './screens';
+import { PersonIcon, BrushIcon } from './assets/icons/icons';
+
+const Stack = createStackNavigator();
+const BottomTab = createBottomTabNavigator();
+
+/**
+   Returns a Bottom navigator element (stylized) that allow switching between two views on the same screen
+ * @function
+ * @param {Object} navigation - a navigation object contains functions and properties for navigation
+ * @param {Object} state - properties of the bottom tabs provided by the navigator
+   @return {jsx} - jsx React Native element of type Bottom Navigator with the specs provided.
+   */
+
+const BotNav = ({ navigation, state }) => (
+  &lt;BottomNavigation
+    selectedIndex={state.index}
+    onSelect={index => navigation.navigate(state.routeNames[index])}>
+      {/* home screen */}
+    &lt;BottomNavigationTab title="Colorize!" icon={BrushIcon} />
+    {/* user profile screen */}
+    &lt;BottomNavigationTab title="Profile" icon={PersonIcon} />
+  &lt;/BottomNavigation>
+);
+
+/**
+   Returns a stack containing main inner screens of the app, displayed as bottom tabs
+ * @function
+navigator
+   @return {jsx} - jsx React Native element of type Bottom Navigator with the specs provided.
+   */
+
+const AppStack = () => (
+  &lt;BottomTab.Navigator tabBar={props => &lt;BotNav {...props} />}>
+    &lt;BottomTab.Screen name="Colorize" component={HomeScreen} />
+    &lt;BottomTab.Screen name="Profile" component={UserProfileScreen} />
+  &lt;/BottomTab.Navigator>
+);
+
+/**
+   Returns a stack containing Auth screens of the app, with ability for the navigator to switch between
+ * @function
+navigator
+   @return {jsx} - jsx React Native element of type Stack with the specs provided.
+   */
+
+const AuthStack = () => (
+  &lt;Stack.Navigator headerMode="none">
+    &lt;Stack.Screen name="Login" component={LoginScreen} />
+    &lt;Stack.Screen name="Register" component={RegisterScreen} />
+    &lt;Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+  &lt;/Stack.Navigator>
+);
+
+/**
+   Main navigator, responsible for navigation within the app screens.
+ * @function
+navigator
+   @return {jsx} - The whole app.
+   */
+
+const App = () => {
+  //theme manager
+  const [theme, setTheme] = React.useState('light');
+  const toggleTheme = () => {
+    const nextTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(nextTheme);
+   
+  };
+  return (
+    &lt;NavigationContainer>
+      &lt;IconRegistry icons={EvaIconsPack} />
+      &lt;ThemeContext.Provider value={{ theme, toggleTheme }}>
+        &lt;ApplicationProvider {...eva} theme={{ ...eva[theme], ...customTheme }}>
+          {/* app status bar color and theme */}
+          &lt;StatusBar
+            backgroundColor={theme === 'light' ? 'white' : '#2a2244'}
+            barStyle={`${theme === 'light' ? 'dark' : 'light'}-content`}
+          />
+          {/* app's screens */}
+          &lt;Stack.Navigator headerMode="none">
+            &lt;Stack.Screen name="Loading" component={AuthLoadingScreen} />
+            &lt;Stack.Screen name="Auth" component={AuthStack} />
+            &lt;Stack.Screen name="App" component={AppStack} />
+            &lt;Stack.Screen name="ImageDetail" component={ImageDetailsScreen} />
+          &lt;/Stack.Navigator>
+        &lt;/ApplicationProvider>
+      &lt;/ThemeContext.Provider>
+    &lt;/NavigationContainer>
+  );
+};
+
+export default memo(App);
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-api_auth-api.html">api/auth-api</a></li><li><a href="module-api_colorize-api.html">api/colorize-api</a></li><li><a href="module-api_firebase-database-storage.html">api/firebase-database-storage</a></li><li><a href="module-components_BackButton.html">components/BackButton</a></li><li><a href="module-components_ModeSwitch.html">components/ModeSwitch</a></li><li><a href="module-components_TextInput.html">components/TextInput</a></li><li><a href="module-helpers_IO.html">helpers/IO</a></li><li><a href="module-helpers_permissions.html">helpers/permissions</a></li><li><a href="module-helpers_validators.html">helpers/validators</a></li><li><a href="module-Navigator.html">Navigator</a></li><li><a href="module-screen_AuthLoadingScreen.html">screen/AuthLoadingScreen</a></li><li><a href="module-screen_ForgotPasswordScreen.html">screen/ForgotPasswordScreen</a></li><li><a href="module-screen_HomeScreen.html">screen/HomeScreen</a></li><li><a href="module-screen_ImageDetailScreen.html">screen/ImageDetailScreen</a></li><li><a href="module-screen_LoginScreen.html">screen/LoginScreen</a></li><li><a href="module-screen_RegisterScreen.html">screen/RegisterScreen</a></li><li><a href="module-screen_UserProfileScreen.html">screen/UserProfileScreen</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.4</a> on Mon May 25 2020 15:57:17 GMT+0200 (Eastern European Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

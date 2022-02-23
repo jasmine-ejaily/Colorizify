@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Colorizify",
+    "slug": "Colorizify",
+    "platforms": ["android"],
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./src/assets/images/icon.png",
+    "splash": {
+      "image": "./src/assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "com.yasminmagdi.colorizify",
+      "versionCode": 1
+    },
+    "description": "Using the amazing DeOldify model by Jason Antic, colorizing the old photos of your loved ones is now much easier."
+  }
+}

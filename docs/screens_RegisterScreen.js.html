@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: screens/RegisterScreen.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: screens/RegisterScreen.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+The registration screen that allows the user to sign up the app
+ * @module screen/RegisterScreen
+ * @requires React
+ * @requires react-native
+ * @requires react-native-gesture-handler
+ * @requires ui-kitten/components
+ * @author Yasmin Magdi Fahmi
+ */
+
+import React, { useState, memo } from 'react';
+import { View, KeyboardAvoidingView, Image } from 'react-native';
+import TextInput from '../components/TextInput';
+import BackButton from '../components/BackButton';
+import ModeSwitch from '../components/ModeSwitch';
+import {
+  emailValidator,
+  passwordValidator,
+  firstNameValidator,
+  lastNameValidator
+} from '../core/helpers/validators';
+import { alertIcon } from '../assets/icons/icons';
+import {
+  Button,
+  Text,
+  StyleService,
+  useStyleSheet,
+  Modal,
+  Card,
+  Layout,
+  Spinner,
+  useTheme
+} from '@ui-kitten/components';
+import { signUpUser } from '../api/auth-api';
+import { ScrollView } from 'react-native-gesture-handler';
+
+/**
+   Renders the Register screen
+ * @function
+ * @param {Object} navigation - a navigation object contains functions and properties for navigation
+ @return {jsx} - The screen
+ */
+
+const RegisterScreen = ({ navigation }) => {
+  //the statuses and their setters, statuses re-render the app when changed
+  const [firstName, setFirstName] = useState({ value: '', error: '' });
+  const [lastName, setLastName] = useState({ value: '', error: '' });
+  const [email, setEmail] = useState({ value: '', error: '' });
+  const [password, setPassword] = useState({ value: '', error: '' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  //theme manager
+  const styles = useStyleSheet(themedStyles);
+  const colors = useTheme();
+
+  /**
+   display's the spinner when called
+  * @function LoadingIndicator
+  * @private
+  * @returns {jsx} loading's spinner
+
+  */
+  const LoadingIndicator = () => (
+    &lt;View style={styles.indicator}>
+      &lt;Spinner size="small" status="control" />
+    &lt;/View>
+  );
+
+/**
+   validate the user inputted information and adds the user to the database
+ * @function _onSignUpPressed
+ * @async
+ * @private
+   */
+
+  const _onSignUpPressed = async () => {
+    if (loading) return;
+
+    //get the validation result
+    const firstNameError = firstNameValidator(firstName.value);
+    const lastNameError = lastNameValidator(lastName.value);
+    const emailError = emailValidator(email.value);
+    const passwordError = passwordValidator(password.value);
+
+     //store the entered data errors to display to the user
+    if (emailError || passwordError || firstNameError || lastNameError) {
+      setFirstName({ ...firstName, error: firstNameError });
+      setLastName({ ...lastName, error: lastNameError });
+      setEmail({ ...email, error: emailError });
+      setPassword({ ...password, error: passwordError });
+      return;
+    }
+    //start the registration operation
+    setLoading(true);
+
+    //initiate registration process with the given info
+    const response = await signUpUser({
+      //combine into full name
+      name: `${firstName.value} ${lastName.value}`,
+      email: email.value,
+      password: password.value
+    });
+    //if there was an error during the operation, display error
+    if (response.error) {
+      setError(response.error);
+    }
+    //done
+    setLoading(false);
+  };
+
+// what the user will see on their screen (rendering)
+  return (
+    &lt;Layout style={{ flex: 1 }} level="1">
+      &lt;ScrollView showsVerticalScrollIndicator={false}>
+        &lt;KeyboardAvoidingView>
+          &lt;Layout style={styles.top}>
+            &lt;Image source={require('../assets/images/31.png')} style={styles.headerImage} />
+            &lt;View style={styles.topBar}>
+              &lt;BackButton
+                color={colors['color-primary-900']}
+                goBack={() => navigation.navigate('Login')}
+              />
+              {/* UI mode switch */}
+              &lt;ModeSwitch
+                moonColor={colors['color-primary-900']}
+                sunColor={colors['color-primary-900']}
+              />
+            &lt;/View>
+            &lt;View style={{ justifyContent: 'center', alignItems: 'center' }}>
+              &lt;Image source={require('../assets/images/sign-up.png')} style={styles.welcomeImage} />
+              &lt;Text category="h5" style={{ fontWeight: 'bold', marginBottom: 10 }}>
+                HELLO THERE ♥
+              &lt;/Text>
+              &lt;Text category="c1">
+                Sign up now and start{' '}
+                &lt;Text status="primary" style={{ fontWeight: 'bold' }}>
+                  colorizifying{' '}
+                &lt;/Text>
+                your old photos!
+              &lt;/Text>
+            &lt;/View>
+          &lt;/Layout>
+          {/* registration form */}
+          &lt;View style={styles.formContainer}>
+            &lt;TextInput
+              value={firstName.value}
+              label="FIRST NAME"
+              returnKeyType="next"
+              placeholder="Ada"
+              status={!!firstName.error ? 'danger' : 'primary'}
+              onChangeText={text => setFirstName({ value: text, error: '' })}
+              error={!!firstName.error}
+              errorText={firstName.error}
+            />
+            &lt;TextInput
+              value={lastName.value}
+              label="LAST NAME"
+              returnKeyType="next"
+              placeholder="Lovelace"
+              status={!!lastName.error ? 'danger' : 'primary'}
+              onChangeText={text => setLastName({ value: text, error: '' })}
+              error={!!lastName.error}
+              errorText={lastName.error}
+            />
+            &lt;TextInput
+              label="EMAIL"
+              returnKeyType="next"
+              value={email.value}
+              status={!!email.error ? 'danger' : 'primary'}
+              placeholder="mymail@example.com"
+              onChangeText={text => setEmail({ value: text, error: '' })}
+              error={!!email.error}
+              errorText={email.error}
+              autoCapitalize="none"
+              autoCompleteType="email"
+              textContentType="emailAddress"
+              keyboardType="email-address"
+            />
+            &lt;TextInput
+              label="PASSWORD"
+              returnKeyType="done"
+              status={!!password.error ? 'danger' : 'primary'}
+              value={password.value}
+              caption="Should contain at least 8 characters"
+              captionIcon={alertIcon}
+              onChangeText={text => setPassword({ value: text, error: '' })}
+              error={!!password.error}
+              errorText={password.error}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+            {/* the error pop up window*/}
+            &lt;Modal backdropStyle={styles.backdrop} visible={!!error}>
+              &lt;Card disabled={true} status='danger'>
+                &lt;Text style={{ marginVertical: 20, fontWeight: 'bold' }}>{error}&lt;/Text>
+                &lt;Button status="danger" onPress={() => setError('')}>
+                  OK
+                &lt;/Button>
+              &lt;/Card>
+            &lt;/Modal>
+          &lt;/View>
+          {/* Login option */}
+          &lt;Layout style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 15 }}>
+            &lt;Button size="giant" onPress={_onSignUpPressed} style={styles.registerButton}>
+              {loading ? LoadingIndicator : 'Register'}
+            &lt;/Button>
+            &lt;View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+              &lt;Text appearance="hint">Already a member?&lt;/Text>
+              &lt;Button appearance="ghost" size="large" onPress={() => navigation.navigate('Login')}>
+                Log in
+              &lt;/Button>
+            &lt;/View>
+          &lt;/Layout>
+        &lt;/KeyboardAvoidingView>
+      &lt;/ScrollView>
+    &lt;/Layout>
+  );
+};
+
+//styles
+const themedStyles = StyleService.create({
+  indicator: {
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  registerButton: {
+    marginVertical: 10
+  },
+  top: {
+    alignItems: 'center',
+    paddingVertical: 24
+  },
+
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    width: '100%',
+    marginBottom: -20
+  },
+  headerImage: {
+    width: 700,
+    height: 700,
+    position: 'absolute',
+    top: -350,
+    opacity: 0.6
+  },
+  formContainer: {
+    paddingHorizontal: 16
+  },
+
+  backdrop: {
+    backgroundColor: 'rgba(0, 0, 0, 0.5)'
+  },
+  welcomeImage: {
+    width: 150,
+    height: 165,
+    marginBottom: 20
+  }
+});
+export default memo(RegisterScreen);
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-api_auth-api.html">api/auth-api</a></li><li><a href="module-api_colorize-api.html">api/colorize-api</a></li><li><a href="module-api_firebase-database-storage.html">api/firebase-database-storage</a></li><li><a href="module-components_BackButton.html">components/BackButton</a></li><li><a href="module-components_ModeSwitch.html">components/ModeSwitch</a></li><li><a href="module-components_TextInput.html">components/TextInput</a></li><li><a href="module-helpers_IO.html">helpers/IO</a></li><li><a href="module-helpers_permissions.html">helpers/permissions</a></li><li><a href="module-helpers_validators.html">helpers/validators</a></li><li><a href="module-Navigator.html">Navigator</a></li><li><a href="module-screen_AuthLoadingScreen.html">screen/AuthLoadingScreen</a></li><li><a href="module-screen_ForgotPasswordScreen.html">screen/ForgotPasswordScreen</a></li><li><a href="module-screen_HomeScreen.html">screen/HomeScreen</a></li><li><a href="module-screen_ImageDetailScreen.html">screen/ImageDetailScreen</a></li><li><a href="module-screen_LoginScreen.html">screen/LoginScreen</a></li><li><a href="module-screen_RegisterScreen.html">screen/RegisterScreen</a></li><li><a href="module-screen_UserProfileScreen.html">screen/UserProfileScreen</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.4</a> on Mon May 25 2020 15:57:17 GMT+0200 (Eastern European Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
