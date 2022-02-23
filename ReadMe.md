@@ -1,6 +1,6 @@
 # Colorizify
 
-![cover](.\cover.png)
+![cover](cover.png)
 
 
 
@@ -12,7 +12,7 @@ An old photos colorization android app built with React Native by Yasmin Fahmi, 
 
 ## Screenshots
 
-![screenshot](.\screenshot.png)
+![screenshot](screenshot.png)
 
 
 
@@ -63,7 +63,7 @@ This will run the server on your localhost, and viola! you’re ready to start d
 
 ## Documentation 
 
-You can view the app’s code documentation [here](./docs/index.html).
+You can view the app’s code documentation [here](docs/index.html).
 
 
 
